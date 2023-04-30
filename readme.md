@@ -1,4 +1,5 @@
 <h1 align="left">Imagic for Laravel Nova 4</h1>
+
 ![Imagic for Laravel Nova 4](https://ayvazyan.pro/imagic_banner.png)
 <p align="left">
   Imagic is a Laravel Nova field package that allows for image manipulation capabilities, such as cropping, resizing, quality adjustment, and WebP conversion. It utilizes the powerful Intervention Image class for image manipulation. The purpose of this package is to optimize images for web usage by converting them to the WebP format, which provides superior compression and faster load times.
