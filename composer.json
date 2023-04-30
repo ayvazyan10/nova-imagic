@@ -1,0 +1,33 @@
+{
+    "name": "ayvazyan10/imagic",
+    "description": "Imagic is a Laravel Nova field package that allows for image manipulation capabilities, such as cropping, resizing, quality adjustment, and WebP conversion. It utilizes the powerful Intervention Image class for image manipulation.",
+    "keywords": [
+        "laravel",
+        "nova",
+        "images",
+        "webp support",
+        "nova4"
+    ],
+    "license": "MIT",
+    "require": {
+        "php": "^7.1|^8.0",
+        "intervention/image": "^2.7"
+    },
+    "autoload": {
+        "psr-4": {
+            "Ayvazyan10\\Imagic\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Ayvazyan10\\Imagic\\FieldServiceProvider"
+            ]
+        }
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}
