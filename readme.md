@@ -13,6 +13,11 @@
 
 ![WEDO](https://wedo.design/logo-black.svg)
 
+### Requirements
+
+* PHP (^7.1 or higher)
+* Laravel Nova (^4.0 or higher)
+
 ### 🚀 Installation
 #### Install the package via Composer.
 ```` bash
