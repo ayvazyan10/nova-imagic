@@ -6,12 +6,18 @@
         "nova",
         "images",
         "webp support",
-        "nova4"
+        "nova4",
+        "image",
+        "crop",
+        "resize",
+        "image crop",
+        "image resize"
     ],
     "license": "MIT",
     "require": {
         "php": "^7.1|^8.0",
-        "intervention/image": "^2.7"
+        "intervention/image": "^2.7",
+        "laravel/nova": "^4.0"
     },
     "autoload": {
         "psr-4": {
@@ -27,6 +33,11 @@
     },
     "config": {
         "sort-packages": true
+    },
+    "suggest": {
+        "ext-imagick": "Install the Imagick extension to process image using ImageMagick.",
+        "ext-gd": "Install the GD extension to process images using GD.",
+        "ext-exif": "Install the exif extension to orientate images automatically."
     },
     "minimum-stability": "dev",
     "prefer-stable": true
