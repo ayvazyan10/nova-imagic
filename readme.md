@@ -21,7 +21,7 @@
 ### 🚀 Installation
 #### Install the package via Composer.
 ```` bash
-composer require ayvazyan10/imagic-field
+composer require ayvazyan10/imagic
 ````
 ### 📚 Usage
 Here is an example of how to use Imagic in your Laravel Nova application:
