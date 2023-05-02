@@ -1,5 +1,5 @@
 {
-    "name": "ayvazyan10/imagic",
+    "name": "ayvazyan10/imagic-field",
     "description": "Imagic is a Laravel Nova field package that allows for image manipulation capabilities, such as cropping, resizing, quality adjustment, and WebP conversion. It utilizes the powerful Intervention Image class for image manipulation.",
     "keywords": [
         "laravel",
