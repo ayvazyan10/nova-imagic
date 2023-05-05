@@ -10,7 +10,7 @@
             <!-- Existing Image -->
             <div class="space-y-4">
                 <div
-                    v-if="hasValue && previewFile"
+                    v-if="hasValue || previewFile"
                     class="grid grid-cols-4 gap-x-6 gap-y-2"
                     ref="imageList"
                 >
@@ -172,12 +172,12 @@ export default {
         setTimeout(() => {
             this.$nextTick(() => {
                 const el = this.$refs.imageList;
-
-                Sortable.create(el);
-                el.addEventListener('update', this.handleSortableUpdate);
+                if (el) {
+                    Sortable.create(el);
+                    el.addEventListener('update', this.handleSortableUpdate);
+                }
             });
         }, 500);
-
     },
 
     methods: {
