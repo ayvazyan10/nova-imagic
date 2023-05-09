@@ -147,7 +147,7 @@ export default {
                     }
                 };
 
-                if (fieldJSON()) {
+                if (this.currentField.value && fieldJSON()) {
                     // Parse existing images
                     const existingImages = JSON.parse(this.currentField.value);
                     // Create a string with a list of existing image URLs separated by commas
