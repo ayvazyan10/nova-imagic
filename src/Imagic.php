@@ -3,6 +3,9 @@
 namespace Ayvazyan10\Imagic;
 
 use Carbon\Carbon;
+use Exception;
+use Illuminate\Support\Str;
+use InvalidArgumentException;
 use Laravel\Nova\Fields\Field;
 use Laravel\Nova\Http\Requests\NovaRequest;
 use Intervention\Image\ImageManagerStatic as Image;
@@ -15,6 +18,13 @@ class Imagic extends Field
      * @var string
      */
     public $component = 'imagic';
+
+    /**
+     * Optional custom upload directory.
+     *
+     * @var string|null
+     */
+    public string|null $customUploadDirectory = null;
 
     /**
      * A boolean flag indicating whether the field should allow multiple image
@@ -79,19 +89,38 @@ class Imagic extends Field
      *
      * @var int
      */
-    public $quality = 90;
+    public int $quality = 90;
 
     /**
      * The Intervention Image driver, default: gd, alternative: imagick
      *
-     * @var int
+     * @var string|int
      */
-    public $driver = 'gd';
+    public string|int $driver = 'gd';
 
     /**
      * The Intervention Image instance used for magic image manipulations.
      */
     public $image;
+    protected $directory;
+
+    /**
+     * Allow the user to set a custom upload directory.
+     *
+     * @param string $path
+     * @return $this
+     * @throws InvalidArgumentException
+     */
+    public function directory(string $path): static
+    {
+        if (Str::startsWith($path, '/') || Str::endsWith($path, '/')) {
+            throw new InvalidArgumentException('Directory structure should not start or end with a slash. Only in the middle.');
+        }
+
+        $this->customUploadDirectory = $path;
+
+        return $this;
+    }
 
     /**
      * Enable watermarking and specify the watermark image path.
@@ -167,7 +196,7 @@ class Imagic extends Field
      * @param int|null $height
      * @return $this
      */
-    public function resize($width = null, $height = null): static
+    public function resize(int $width = null, int $height = null): static
     {
         $this->resizeWidth = $width;
         $this->resizeHeight = $height;
@@ -179,9 +208,14 @@ class Imagic extends Field
      * Set whether the field should allow multiple image uploads.
      *
      * @return $this
+     * @throws Exception
      */
     public function quality(int $quality): static
     {
+        if ($quality < 0 || $quality > 100) {
+            throw new Exception('The quality must ranges from 0 to 100.');
+        }
+
         $this->quality = $quality;
 
         return $this;
@@ -191,9 +225,14 @@ class Imagic extends Field
      * Set whether the field should allow multiple image uploads.
      *
      * @return $this
+     * @throws Exception
      */
     public function driver(string $driver): static
     {
+        if (!in_array($driver, ['gd', 'imagick'])) {
+            throw new Exception("The driver \"$driver\" is not a valid Intervention driver.");
+        }
+
         $this->driver = $driver;
 
         return $this;
@@ -228,9 +267,6 @@ class Imagic extends Field
             'month' => Carbon::now()->format('m'),
             'day' => Carbon::now()->format('d')
         ];
-
-        // configure with favored image driver (gd by default)
-        Image::configure(['driver' => $this->driver]);
 
         $this->directory = (object)$directory;
     }
@@ -278,7 +314,7 @@ class Imagic extends Field
      */
     protected function imageMagic($requestAttribute): string|array
     {
-        $destinationPath = public_path('storage/imagic/' . $this->directory->year . '/' . $this->directory->month . '/' . $this->directory->day . '/');
+        $destinationPath = public_path(empty($this->customUploadDirectory) ? 'storage/imagic/' . $this->directory->year . '/' . $this->directory->month . '/' . $this->directory->day . '/' : $this->customUploadDirectory . '/');
 
         if (!is_dir($destinationPath)) {
             mkdir($destinationPath, 0775, true);
@@ -300,6 +336,8 @@ class Imagic extends Field
 
     public function imageManipulations($image, $destinationPath): string
     {
+        // configure with favored image driver (gd by default)
+        Image::configure(['driver' => $this->driver]);
 
         $this->image = Image::make($image->getRealPath());
 
@@ -328,7 +366,11 @@ class Imagic extends Field
             $this->resizeMagic();
         }
 
-        $image_url = '/storage/imagic/' . $this->directory->year . '/' . $this->directory->month . '/' . $this->directory->day . '/' . $imageName;
+        if (!empty($this->customUploadDirectory)) {
+            $image_url = '/' . $this->customUploadDirectory . '/' . $imageName;
+        } else {
+            $image_url = '/storage/imagic/' . $this->directory->year . '/' . $this->directory->month . '/' . $this->directory->day . '/' . $imageName;
+        }
 
         $this->image->save($destinationPath . $imageName, $this->quality, $this->convert === false ? null : 'webp');
         $this->image->destroy();

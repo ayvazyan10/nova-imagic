@@ -4,9 +4,9 @@
 <p align="left">
   Imagic is a Laravel Nova field package that allows for image manipulation capabilities, such as cropping, resizing, quality adjustment, and WebP conversion. It utilizes the powerful Intervention Image class for image manipulation. The purpose of this package is to optimize images for web usage by converting them to the WebP format, which provides superior compression and faster load times.
 <br><br>Advanced Image Manipulation Made Easy with Images Magic
-<br><br>✅ Multiple Uploads <br>✅ Cropping <br>✅ Resizing
+<br><br>✅ Single/Multiple Uploads <br>✅ Cropping <br>✅ Resizing
 <br>✅ Fitting <br>✅ Quality Control <br>✅ WebP Conversion
-<br>✅ Watermarking
+<br>✅ Watermarking <br>✅ Custom Directories
 </p>
 
 [![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-Donate-yellow?style=for-the-badge&logo=buymeacoffee)](https://www.buymeacoffee.com/ayvazyan403)
@@ -48,6 +48,7 @@ Imagic::make('Image')
     ->resize($width, $height)
     ->fit($width, $height)
     ->quality($quality)
+    ->directory($path)
     ->convert($convert = true)
     ->watermark($path, $position = 'bottom-right', $x = 0, $y = 0);
 ````
@@ -90,6 +91,29 @@ This will add the watermark to the image with the specified path, position, and 
 Remember to import the Imagic class at the top of your Nova resource file:
 ``` php
 Imagic::make('Image')->watermark('/path/to/watermark.png', 'bottom-right', 15, 15),
+```
+#### - <u>Directory Customization</u> 
+BY DEFAULT - Imagic uses this structure: /storage/imagic/year/month/day/image_name.webp
+
+The Imagic class includes a directory() method that allows you to specify a custom directory path for your image uploads. This allows for more flexibility in managing the location of your image files.
+
+To use this feature, call the directory() method when creating an Imagic field and provide it with your custom directory path as an argument. This path should be a string, and should not start or end with a /.
+
+Here is an example of how to use it:
+``` php
+Imagic::make('Image')->directory('your/custom/directory')
+```
+In this example, any images uploaded through this field will be saved in your/custom/directory.
+
+Caution:
+The provided directory path should not start or end with a /. If it does, an InvalidArgumentException will be thrown. Make sure your directory path is correctly formatted when using this feature.
+
+For example, the following code would throw an exception:
+``` php
+// This will throw an exception because the directory path starts with a '/'
+// Directory structure should not start or end with a slash. Only in the middle.
+Imagic::make('Image')
+    ->directory('/invalid/directory/path')
 ```
 
 ## Contributing
