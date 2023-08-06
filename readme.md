@@ -47,7 +47,9 @@ Imagic::make('Image')
     ->crop($width, $height, $left = 0, $top = 0)
     ->resize($width, $height)
     ->fit($width, $height)
+    ->widen($width)
     ->quality($quality)
+    ->disk($path)
     ->directory($path)
     ->convert($convert = true)
     ->watermark($path, $position = 'bottom-right', $x = 0, $y = 0);
@@ -61,13 +63,23 @@ Imagic::make('Images')->multiple(),
 ```
 #### - <u>Cropping</u>
 To crop images, use the crop() method:
+- x (optional)
+X-Coordinate of the top-left corner if the rectangular cutout. By default the rectangular part will be centered on the current image.
+- y (optional)
+Y-Coordinate of the top-left corner if the rectangular cutout. By default the rectangular part will be centered on the current image.
 ``` php
-Imagic::make('Image')->crop($width, $height, $left, $top),
+Imagic::make('Image')->crop($width, $height, $x, $y),
 ```
 #### - <u>Resizing</u>
 To resize images, use the resize() method:
 ``` php
 Imagic::make('Image')->resize($width = int|null, $height = int|null),
+```
+#### - <u>Widen resizing by width</u>
+Specify the desired (only - width)  for image resizing. 
+- The height will be automatically adjusted to maintain the aspect ratio.
+``` php
+Imagic::make('Image')->widen($width = int),
 ```
 #### - <u>Quality</u>
 To adjust the image quality, use the quality() method: default is 90
@@ -92,6 +104,13 @@ Remember to import the Imagic class at the top of your Nova resource file:
 ``` php
 Imagic::make('Image')->watermark('/path/to/watermark.png', 'bottom-right', 15, 15),
 ```
+#### - <u>Specified disk</u>
+Here is an example of how to use it:
+``` php
+Imagic::make('Image')->disk('public')
+```
+Caution:
+The disk is not working with custom directories and will throw an error.
 #### - <u>Directory Customization</u> 
 BY DEFAULT - Imagic uses this structure: /storage/imagic/year/month/day/image_name.webp
 

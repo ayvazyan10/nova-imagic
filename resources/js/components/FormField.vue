@@ -132,7 +132,6 @@ export default {
         this.getFullDomainWithProtocol()
         this.preparePreviewImage()
 
-
         this.field.fill = formData => {
             let attribute = this.field.attribute
 
@@ -181,6 +180,7 @@ export default {
     },
 
     methods: {
+
         getFullDomainWithProtocol() {
             const protocol = window.location.protocol;
             const hostname = window.location.hostname;
@@ -224,9 +224,9 @@ export default {
         async fetchPreviewImage() {
             if (this.field.multiple) {
                 let jsonImage = JSON.parse(this.currentField.value);
-                this.imageForPreview = this.domain + jsonImage[0]
+                this.imageForPreview = jsonImage[0]
             } else {
-                this.imageForPreview = this.domain + this.currentField.value
+                this.imageForPreview = this.currentField.value
             }
 
             let response = await fetch(this.imageForPreview)
@@ -266,7 +266,7 @@ export default {
             if (this.field.multiple) {
                 this.currentField.value.splice(index, 1);
             } else {
-                this.files = null;
+                this.currentField.value = null;
             }
         },
 

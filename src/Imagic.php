@@ -4,6 +4,7 @@ namespace Ayvazyan10\Imagic;
 
 use Carbon\Carbon;
 use Exception;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use Laravel\Nova\Fields\Field;
@@ -49,6 +50,13 @@ class Imagic extends Field
     public int|null $cropHeight = null;
     public int|null $cropLeft = null;
     public int|null $cropTop = null;
+
+    /**
+     * Widen resize to width.
+     *
+     * @var int|null
+     */
+    public int|null $widenResize = null;
 
     /**
      * Optional add watermark to images.
@@ -99,22 +107,35 @@ class Imagic extends Field
     public string|int $driver = 'gd';
 
     /**
+     * The disk name where the image should be stored.
+     *
+     * @var string|null
+     */
+    protected ?string $disk = null;
+
+    /**
      * The Intervention Image instance used for magic image manipulations.
      */
     public $image;
     protected $directory;
+    protected $url;
 
     /**
      * Allow the user to set a custom upload directory.
      *
      * @param string $path
      * @return $this
-     * @throws InvalidArgumentException
+     * @throws InvalidArgumentException|Exception
      */
     public function directory(string $path): static
     {
         if (Str::startsWith($path, '/') || Str::endsWith($path, '/')) {
             throw new InvalidArgumentException('Directory structure should not start or end with a slash. Only in the middle.');
+        }
+
+        // Throw an exception if disk and directory are both set
+        if ($this->disk) {
+            throw new Exception('You cannot use both disk and custom directories together.');
         }
 
         $this->customUploadDirectory = $path;
@@ -205,6 +226,19 @@ class Imagic extends Field
     }
 
     /**
+     * Specify the size (only width) the image should be resized.
+     *
+     * @param int|null $width
+     * @return $this
+     */
+    public function widen(int $width = null): static
+    {
+        $this->widenResize = $width;
+
+        return $this;
+    }
+
+    /**
      * Set whether the field should allow multiple image uploads.
      *
      * @return $this
@@ -234,6 +268,19 @@ class Imagic extends Field
         }
 
         $this->driver = $driver;
+
+        return $this;
+    }
+
+    /**
+     * Set the disk name where the image should be stored.
+     *
+     * @param string $disk
+     * @return $this
+     */
+    public function disk(string $disk): static
+    {
+        $this->disk = $disk;
 
         return $this;
     }
@@ -314,10 +361,14 @@ class Imagic extends Field
      */
     protected function imageMagic($requestAttribute): string|array
     {
-        $destinationPath = public_path(empty($this->customUploadDirectory) ? 'storage/imagic/' . $this->directory->year . '/' . $this->directory->month . '/' . $this->directory->day . '/' : $this->customUploadDirectory . '/');
+        $destinationPath = public_path(empty($this->customUploadDirectory) ?
+            'storage/imagic/' . $this->directory->year . '/' . $this->directory->month . '/' . $this->directory->day . '/' :
+            $this->customUploadDirectory . '/');
 
-        if (!is_dir($destinationPath)) {
-            mkdir($destinationPath, 0775, true);
+        if (!$this->disk) {
+            if (!is_dir($destinationPath)) {
+                mkdir($destinationPath, 0775, true);
+            }
         }
 
         if (is_array($requestAttribute) && $this->multiple) {
@@ -354,6 +405,10 @@ class Imagic extends Field
             $this->fitMagic();
         }
 
+        if ($this->widenResize) {
+            $this->widenResizeMagic();
+        }
+
         if ($this->watermark && $this->watermarkPath) {
             $this->watermarkMagic();
         }
@@ -366,16 +421,23 @@ class Imagic extends Field
             $this->resizeMagic();
         }
 
+        if ($this->disk) {
+            $destinationPath = Storage::disk($this->disk)->path('');
+        }
+
         if (!empty($this->customUploadDirectory)) {
-            $image_url = '/' . $this->customUploadDirectory . '/' . $imageName;
+            $this->url = '/' . $this->customUploadDirectory . '/' . $imageName;
+        } else if ($this->disk) {
+            $this->diskSpecified($imageName);
         } else {
-            $image_url = '/storage/imagic/' . $this->directory->year . '/' . $this->directory->month . '/' . $this->directory->day . '/' . $imageName;
+            $this->url = '/storage/imagic/' . $this->directory->year . '/' . $this->directory->month . '/' . $this->directory->day . '/' . $imageName;
         }
 
         $this->image->save($destinationPath . $imageName, $this->quality, $this->convert === false ? null : 'webp');
+
         $this->image->destroy();
 
-        return $image_url;
+        return $this->url;
     }
 
 
@@ -396,7 +458,9 @@ class Imagic extends Field
      */
     protected function fitMagic(): void
     {
-        $this->image->fit($this->fitWidth, $this->fitHeight);
+        $this->image->fit($this->fitWidth, $this->fitHeight, function ($constraint) {
+            $constraint->upsize();
+        });
     }
 
     /**
@@ -417,12 +481,36 @@ class Imagic extends Field
      */
     protected function resizeMagic(): void
     {
-        $this->image->resize(empty($this->resizeWidth) && empty($this->resizeHeight) ? 1920
-            : $this->resizeWidth, empty($this->resizeWidth) && empty($this->resizeHeight) ? 1080
-            : $this->resizeHeight, function ($constraint) {
-            $constraint->upsize();
+        $this->image->resize($this->resizeWidth, $this->resizeHeight, function ($constraint) {
             $constraint->aspectRatio();
+            $constraint->upsize();
         });
+    }
+
+    /**
+     * Magic with Widen Resize.
+     *
+     * @return void
+     */
+    protected function widenResizeMagic(): void
+    {
+        $this->image->widen($this->widenResize, function ($constraint) {
+            $constraint->upsize();
+        });
+    }
+
+    /**
+     * Url Of Disk Image
+     *
+     * @param $imageName
+     * @return void
+     */
+    protected function diskSpecified($imageName): void
+    {
+        $storage_url = Storage::disk($this->disk)->url($imageName);
+
+        $parsedUrl = parse_url($storage_url);
+        $this->url = $parsedUrl['path'];
     }
 
     /**
