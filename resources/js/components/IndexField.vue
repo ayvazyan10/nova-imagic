@@ -1,6 +1,6 @@
 <template>
     <div>
-      <img :src="domain + fieldValue" style="height: 50px" alt="">
+      <img :src="fieldValue && fieldValue.indexOf('://') !== -1 ? fieldValue : domain + fieldValue" style="height: 50px" alt="">
     </div>
 </template>
 

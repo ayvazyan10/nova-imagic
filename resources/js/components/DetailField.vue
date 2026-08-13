@@ -95,7 +95,8 @@ export default {
         },
 
         imageUrl() {
-            return this.field.previewUrl || this.domain + this.field.value
+            const url = this.field.previewUrl || this.field.value
+            return url && url.indexOf('://') !== -1 ? url : this.domain + url
         },
     },
 }

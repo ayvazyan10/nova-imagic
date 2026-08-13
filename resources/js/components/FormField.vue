@@ -39,10 +39,9 @@
                                 <div
                                     class="bg-gray-50 dark:bg-gray-700 relative aspect-square flex items-center justify-center border-2 border-gray-200 dark:border-gray-700 overflow-hidden rounded-lg"
                                 >
-
                                     <!-- Image Preview -->
                                     <img
-                                        :src="domain + path"
+                                        :src="path.indexOf('://') !== -1 ? path : domain + path"
                                         class="aspect-square object-scale-down"
                                     />
                                 </div>
