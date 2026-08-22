@@ -1,409 +1,252 @@
 <template>
-    <DefaultField
-        :field="currentField"
-        :label-for="labelFor"
-        :errors="errors"
-        :show-help-text="!isReadonly && showHelpText"
-        :full-width-content="fullWidthContent"
-    >
-        <template #field>
-            <!-- Existing Image -->
-            <div class="space-y-4">
-                <div
-                    v-if="hasValue || previewFile"
-                    class="grid grid-cols-4 gap-x-6 gap-y-2"
-                    ref="imageList"
-                >
-                    <div class="single_image" v-if="!field.multiple">
-                    <FilePreviewBlock
-                        v-if="previewFile && !field.multiple"
-                        :file="previewFile"
-                        :removable="false"
-                        :rounded="field.rounded"
-                        :dusk="field.attribute + '-delete-link'"
-                    />
-                    </div>
-
-
-                    <div v-if="field.multiple" v-for="(path, index) in JSON.parse(currentField.value)" :key="path">
-                        <div class="h-full flex items-start justify-center">
-                            <div class="relative w-full">
-                                <!-- Remove Button -->
-                                <RemoveButton
-                                    class="absolute z-20 top-[-10px] right-[-9px]"
-                                    @click.stop="confirmRemoval(index)"
-                                    v-tooltip="__('Remove')"
-                                    :dusk="currentField.attribute + '-delete-link'"
-                                />
-
-                                <div
-                                    class="bg-gray-50 dark:bg-gray-700 relative aspect-square flex items-center justify-center border-2 border-gray-200 dark:border-gray-700 overflow-hidden rounded-lg"
-                                >
-
-                                    <!-- Image Preview -->
-                                    <img
-                                        :src="domain + path"
-                                        class="aspect-square object-scale-down"
-                                    />
-                                </div>
-
-                                <!-- File Information -->
-                                <p :title="path" class="multi_title font-semibold text-xs mt-1">{{ path }}</p>
-                            </div>
-                        </div>
-                    </div>
-
-                </div>
-
-
-                <!-- DropZone -->
-                <DropZone
-                    v-if="!field.multiple"
-                    @change="handleFileChange"
-                    @file-changed="handleFileChange"
-                    :files="files"
-                    @file-removed="removeFile"
-                    :rounded="field.rounded"
-                    :accepted-types="field.acceptedTypes"
-                    :disabled="file?.processing"
-                    :dusk="field.attribute + '-delete-link'"
-                    :input-dusk="field.attribute"
-                />
-                <DropZone
-                    v-else
-                    @change="handleFileChange"
-                    @file-changed="handleFileChange"
-                    :files="images"
-                    @file-removed="removeFile"
-                    :rounded="field.rounded"
-                    :accepted-types="field.acceptedTypes"
-                    :disabled="file?.processing"
-                    :dusk="field.attribute + '-delete-link'"
-                    :input-dusk="field.attribute"
-                    multiple
-                    :ref="dropzone"
-                />
+  <DefaultField
+    :field="currentField"
+    :label-for="labelFor"
+    :errors="errors"
+    :show-help-text="!isReadonly && showHelpText"
+    :full-width-content="fullWidthContent"
+  >
+    <template #field>
+      <div class="imagic-field" :class="{ 'has-error': hasAnyError }">
+        <div v-if="items.length" ref="imageList" class="imagic-field__grid" role="list" :aria-label="__('Selected images')">
+          <article v-for="item in items" :key="item.key" :data-key="item.key" class="imagic-selection-card" role="listitem">
+            <div class="imagic-selection-card__preview">
+              <img :src="item.thumbnailUrl || item.url" :alt="item.name" width="240" height="180" />
+              <span v-if="item.kind === 'upload'" class="imagic-selection-card__badge">{{ __('New') }}</span>
+              <div v-if="!currentlyIsReadonly" class="imagic-selection-card__actions">
+                <button v-if="canCrop(item)" class="imagic-icon-button imagic-icon-button--light" type="button" :aria-label="__('Crop') + ' ' + item.name" @click="startCrop(item)"><ImagicIcon name="crop" /></button>
+                <button class="imagic-icon-button imagic-icon-button--light" type="button" :aria-label="__('Remove') + ' ' + item.name" @click="removeItem(item)"><ImagicIcon name="trash" /></button>
+              </div>
             </div>
-        </template>
-    </DefaultField>
+            <div class="imagic-selection-card__meta">
+              <span v-if="field.multiple && !currentlyIsReadonly" class="imagic-drag-handle" :title="__('Drag to reorder')"><ImagicIcon name="grip" /></span>
+              <div><strong :title="item.name">{{ item.name }}</strong><span>{{ formatBytes(item.size) || (item.kind === 'upload' ? __('Ready to upload') : __('Saved image')) }}</span></div>
+              <span v-if="field.multiple && !currentlyIsReadonly" class="imagic-order-buttons">
+                <button type="button" :disabled="items.indexOf(item) === 0" :aria-label="__('Move earlier') + ' ' + item.name" @click="moveItem(item, -1)"><ImagicIcon name="up" /></button>
+                <button type="button" :disabled="items.indexOf(item) === items.length - 1" :aria-label="__('Move later') + ' ' + item.name" @click="moveItem(item, 1)"><ImagicIcon name="down" /></button>
+              </span>
+            </div>
+          </article>
+        </div>
+
+        <div v-else-if="currentlyIsReadonly" class="imagic-inline-empty">&mdash;</div>
+
+        <div v-if="!currentlyIsReadonly" class="imagic-field__actions">
+          <label
+            class="imagic-dropzone"
+            :class="{ 'is-dragging': dragging, 'is-disabled': atLimit }"
+            :for="labelFor"
+            @dragenter.prevent="dragging = true"
+            @dragover.prevent="dragging = true"
+            @dragleave.prevent="dragging = false"
+            @drop.prevent="handleDrop"
+          >
+            <input
+              :id="labelFor"
+              ref="fileInput"
+              class="sr-only"
+              type="file"
+              :accept="acceptedTypes"
+              :multiple="Boolean(field.multiple)"
+              :disabled="atLimit"
+              :dusk="field.attribute"
+              @change="handleInput"
+            />
+            <span class="imagic-dropzone__icon"><ImagicIcon name="upload" /></span>
+            <span><strong>{{ field.multiple ? __('Drop images here or browse') : __('Drop an image here or browse') }}</strong><small>{{ uploadHint }}</small></span>
+          </label>
+
+          <button v-if="mediaLibraryEnabled" class="imagic-library-trigger" type="button" @click="libraryOpen = true">
+            <span><ImagicIcon name="image" /></span>
+            <span><strong>{{ __('Choose from media') }}</strong><small>{{ __('Reuse an image already uploaded') }}</small></span>
+            <ImagicIcon name="chevron-right" />
+          </button>
+        </div>
+
+        <p v-if="clientError" class="imagic-form-error" role="alert">{{ clientError }}</p>
+        <p v-else-if="hasAnyError" class="imagic-form-error" role="alert">{{ firstAvailableError }}</p>
+
+        <CropModal
+          :show="Boolean(cropItem)"
+          :file="cropItem?.file"
+          :aspect-ratio="cropAspectRatio"
+          :output-width="field.cropWidth || undefined"
+          :output-height="field.cropHeight || undefined"
+          @apply="applyCrop"
+          @cancel="skipCrop"
+        />
+
+        <Teleport to="body">
+          <div v-if="libraryOpen" class="imagic-dialog-layer imagic-dialog-layer--library" @mousedown.self="libraryOpen = false">
+            <section ref="libraryDialog" class="imagic-dialog imagic-library-dialog" role="dialog" aria-modal="true" tabindex="-1" :aria-label="__('Choose from media')" @keydown.esc.prevent="libraryOpen = false" @keydown.tab="trapLibraryFocus">
+              <MediaBrowser :picker="true" :multiple="Boolean(field.multiple)" :api-base="mediaApiBase" :accepted-types="acceptedTypes" @close="libraryOpen = false" @select="addFromLibrary" />
+            </section>
+          </div>
+        </Teleport>
+      </div>
+    </template>
+  </DefaultField>
 </template>
 
 <script>
-import {DependentFormField, Errors, HandlesValidationErrors} from 'laravel-nova'
-import Sortable from 'sortablejs';
-
-function createFile(file) {
-    return {
-        name: file.name,
-        extension: file.name.split('.').pop(),
-        type: file.type,
-        originalFile: file,
-    }
-}
+import { DependentFormField, HandlesValidationErrors } from 'laravel-nova'
+import Sortable from 'sortablejs'
+import CropModal from './CropModal'
+import ImagicIcon from './ImagicIcon'
+import MediaBrowser from './MediaBrowser'
+import { formatBytes, localMediaItem, normalizeMediaItem, normalizeValue, revokeLocalItem } from '../media'
 
 export default {
-    emits: ['file-deleted', 'removed'],
-
-    props: [
-        'resourceId',
-        'relatedResourceName',
-        'relatedResourceId',
-        'viaRelationship',
-    ],
-
-    mixins: [HandlesValidationErrors, DependentFormField],
-
-    data: () => ({
-        previewFile: null,
-        file: null,
-        images: [],
-        removeModalOpen: false,
-        missing: false,
-        imageForPreview: null,
-        domain: null,
-        deleted: false,
-        uploadErrors: new Errors(),
-        uploadProgress: 0,
-        startedDrag: false,
-        uploadModalShown: false,
-    }),
-
-    async mounted() {
-        this.getFullDomainWithProtocol()
-        this.preparePreviewImage()
-
-        this.field.fill = formData => {
-            let attribute = this.field.attribute
-
-            if (this.field.multiple) {
-
-                const fieldJSON = () => {
-                    try {
-                        JSON.parse(this.currentField.value)
-                        return true;
-                    } catch (e) {
-                        return false;
-                    }
-                };
-
-                if (this.currentField.value && fieldJSON()) {
-                    // Parse existing images
-                    const existingImages = JSON.parse(this.currentField.value);
-                    // Create a string with a list of existing image URLs separated by commas
-                    const existingImagesString = existingImages.join(',');
-                    // Append the existing images to the FormData as a comma-separated string
-                    formData.append(attribute + '_existing', existingImagesString);
-                }
-
-
-                if (this.images) {
-                    this.images.forEach(image => {
-                        formData.append(attribute + '[]', image.originalFile, image.name)
-                    })
-                }
-            } else {
-                if (this.file) {
-                    formData.append(attribute, this.file.originalFile, this.file.name)
-                }
-            }
-        }
-
-        setTimeout(() => {
-            this.$nextTick(() => {
-                const el = this.$refs.imageList;
-                if (el) {
-                    Sortable.create(el);
-                    el.addEventListener('update', this.handleSortableUpdate);
-                }
-            });
-        }, 500);
+  components: { CropModal, ImagicIcon, MediaBrowser },
+  mixins: [HandlesValidationErrors, DependentFormField],
+  props: ['resourceId', 'relatedResourceName', 'relatedResourceId', 'viaRelationship'],
+  data: () => ({ items: [], dragging: false, clientError: '', sortable: null, libraryOpen: false, libraryPreviousFocus: null, cropItem: null, cropQueue: [] }),
+  computed: {
+    labelFor() {
+      const relation = this.relatedResourceName ? `-${this.relatedResourceName}` : ''
+      return `imagic-${this.resourceName}${relation}-${this.field.attribute}`
     },
-
-    methods: {
-
-        getFullDomainWithProtocol() {
-            const protocol = window.location.protocol;
-            const hostname = window.location.hostname;
-            const port = window.location.port ? ':' + window.location.port : '';
-
-            this.domain = `${protocol}//${hostname}${port}`;
-        },
-
-
-        handleSortableUpdate(event) {
-            const newOrder = Object.values(event.target.children).map((item) => item.innerText);
-
-            this.currentField.value = JSON.stringify(newOrder);
-        },
-
-        preparePreviewImage() {
-            if (this.hasValue) {
-                this.fetchPreviewImage()
-            }
-        },
-
-        convertWebPToPNG(blob) {
-            return new Promise((resolve, reject) => {
-                const img = new Image();
-                img.src = URL.createObjectURL(blob);
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    const ctx = canvas.getContext('2d');
-                    canvas.width = img.width;
-                    canvas.height = img.height;
-                    ctx.drawImage(img, 0, 0);
-                    const imageDataURL = canvas.toDataURL('image/png');
-                    resolve(imageDataURL);
-                };
-                img.onerror = (error) => {
-                    reject(error);
-                };
-            });
-        },
-
-        async fetchPreviewImage() {
-            if (this.field.multiple) {
-                let jsonImage = JSON.parse(this.currentField.value);
-                this.imageForPreview = jsonImage[0]
-            } else {
-                this.imageForPreview = this.currentField.value
-            }
-
-            let response = await fetch(this.imageForPreview)
-            let data = await response.blob()
-
-            fetch(this.imageForPreview)
-                .then(response => response.blob())
-                .then(data => {
-                    if (data.type === 'image/webp') {
-                        return this.convertWebPToPNG(data)
-                            .then(imageDataURL => fetch(imageDataURL))
-                            .then(response => response.blob())
-                            .then(imageData => {
-                                const convertedFile = new File([imageData], this.imageForPreview, { type: imageData.type });
-                                this.previewFile = createFile(convertedFile);
-                            });
-                    } else {
-                        this.previewFile = createFile(
-                            new File([data], this.imageForPreview, {type: data.type})
-                        )
-                    }
-                })
-                .catch(error => {
-                    console.error('Error fetching preview image:', error);
-                });
-        },
-
-        handleFileChange(newFiles) {
-            if (this.field.multiple) {
-                this.images = this.images.concat(Array.from(newFiles, createFile));
-            } else {
-                this.file = createFile(newFiles[0]);
-            }
-        },
-
-        removeFile(index) {
-            if (this.field.multiple) {
-                this.currentField.value.splice(index, 1);
-            } else {
-                this.currentField.value = null;
-            }
-        },
-
-        confirmRemoval(index) {
-            let images_delete = JSON.parse(this.currentField.value);
-            images_delete.splice(index, 1);
-            this.currentField.value = JSON.stringify(images_delete);
-        },
-
-        closeRemoveModal() {
-            this.removeModalOpen = false
-        },
-
-        async removeUploadedFile() {
-            this.uploadErrors = new Errors()
-
-            const {
-                resourceName,
-                resourceId,
-                relatedResourceName,
-                relatedResourceId,
-                viaRelationship,
-            } = this
-            const attribute = this.field.attribute
-
-            const uri =
-                this.viaRelationship &&
-                this.relatedResourceName &&
-                this.relatedResourceId
-                    ? `/nova-api/${resourceName}/${resourceId}/${relatedResourceName}/${relatedResourceId}/field/${attribute}?viaRelationship=${viaRelationship}`
-                    : `/nova-api/${resourceName}/${resourceId}/field/${attribute}`
-
-            try {
-                await Nova.request().delete(uri)
-                this.closeRemoveModal()
-                this.deleted = true
-                this.$emit('file-deleted')
-                Nova.success(this.__('The image was deleted!'))
-            } catch (error) {
-                this.closeRemoveModal()
-
-                if (error.response?.status === 422) {
-                    this.uploadErrors = new Errors(error.response.data.errors)
-                }
-            }
-        },
-    }
-    ,
-
-    computed: {
-        files() {
-            return this.field.multiple ? this.images : this.file ? [this.file] : [];
-        },
-
-        /**
-         * Determine if the field has an upload error.
-         */
-        hasError() {
-            return this.uploadErrors.has(this.fieldAttribute)
-        },
-
-        /**
-         * Return the first error for the field.
-         */
-        firstError() {
-            if (this.hasError) {
-                return this.uploadErrors.first(this.fieldAttribute)
-            }
-        },
-
-        /**
-         * The ID attribute to use for the file field.
-         */
-        idAttr() {
-            return this.labelFor
-        },
-
-        /**
-         * The label attribute to use for the file field.
-         */
-        labelFor() {
-            let name = this.resourceName
-
-            if (this.relatedResourceName) {
-                name += '-' + this.relatedResourceName
-            }
-
-            return `imagic-${name}-${this.field.attribute}`
-        },
-
-        /**
-         * Determine whether the field has a value.
-         */
-        hasValue() {
-            return (
-                Boolean(this.field.value || this.imageUrl) &&
-                !Boolean(this.deleted) &&
-                !Boolean(this.missing)
-            )
-        },
-
-        /**
-         * Determine whether the field should show the loader component.
-         */
-        shouldShowLoader() {
-            return !Boolean(this.deleted) && Boolean(this.imageUrl)
-        },
-
-        /**
-         * Determine whether the file field input should be shown.
-         */
-        shouldShowField() {
-            return Boolean(!this.currentlyIsReadonly)
-        },
-
-        /**
-         * Determine whether the field should show the remove button.
-         */
-        shouldShowRemoveButton() {
-            return true
-        },
-
-        /**
-         * Return the preview or thumbnail URL for the field.
-         */
-        imageUrl() {
-            return this.currentField.previewUrl || this.currentField.thumbnailUrl
-        },
+    acceptedTypes() { return Array.isArray(this.field.acceptedTypes) ? this.field.acceptedTypes.join(',') : (this.field.acceptedTypes || 'image/jpeg,image/png,image/webp,image/gif') },
+    maximumFiles() { return Number(this.field.maxFiles || (this.field.multiple ? 20 : 1)) },
+    maximumBytes() { return Number(this.field.maxFileSize || this.field.maxFileSizeBytes || 10 * 1024 * 1024) },
+    atLimit() { return this.items.length >= this.maximumFiles },
+    uploadHint() {
+      const size = formatBytes(this.maximumBytes)
+      const limit = this.field.multiple ? `${this.maximumFiles} ${this.__('images maximum')}` : this.__('one image')
+      return `${this.acceptedTypes.replaceAll('image/', '').toUpperCase()} · ${size} · ${limit}`
     },
+    mediaLibraryEnabled() { return Boolean(this.field.mediaLibrary || this.field.mediaLibraryEnabled) },
+    mediaApiBase() { return this.field.mediaApiBase || '/nova-vendor/imagic' },
+    liveCropEnabled() { return Boolean(this.field.liveCrop || this.field.cropper) },
+    cropAspectRatio() {
+      const explicit = Number(this.field.cropAspectRatio)
+      if (Number.isFinite(explicit) && explicit > 0) return explicit
+      const width = Number(this.field.cropWidth); const height = Number(this.field.cropHeight)
+      return width > 0 && height > 0 ? width / height : NaN
+    },
+    hasAnyError() { return Boolean(this.clientError || this.errors?.has?.(this.field.attribute)) },
+    firstAvailableError() { return this.errors?.first?.(this.field.attribute) || '' },
+  },
+  watch: {
+    'currentField.value'(value) {
+      if (!this.items.some(item => item.kind === 'upload')) this.items = normalizeValue(value, this.currentField)
+    },
+    libraryOpen(value) {
+      if (value) {
+        this.libraryPreviousFocus = document.activeElement
+        this.$nextTick(() => this.$refs.libraryDialog?.focus())
+      } else {
+        this.libraryPreviousFocus?.focus?.()
+        this.libraryPreviousFocus = null
+      }
+    },
+  },
+  mounted() {
+    this.items = normalizeValue(this.currentField.value, this.currentField)
+    const fill = formData => this.fill(formData)
+    this.field.fill = fill
+    this.currentField.fill = fill
+    this.$nextTick(this.createSortable)
+  },
+  updated() { this.$nextTick(this.createSortable) },
+  beforeUnmount() {
+    this.sortable?.destroy()
+    this.items.forEach(revokeLocalItem)
+  },
+  methods: {
+    formatBytes,
+    createSortable() {
+      if (!this.field.multiple || this.currentlyIsReadonly || !this.$refs.imageList || this.sortable) return
+      this.sortable = Sortable.create(this.$refs.imageList, {
+        animation: 150,
+        handle: '.imagic-drag-handle',
+        ghostClass: 'is-sorting',
+        onEnd: event => {
+          const moved = this.items.splice(event.oldIndex, 1)[0]
+          this.items.splice(event.newIndex, 0, moved)
+        },
+      })
+    },
+    fill(formData) {
+      const attribute = this.field.attribute
+      const existing = this.items.filter(item => item.kind === 'existing').map(item => item.reference || item.path)
+      const uploads = this.items.filter(item => item.kind === 'upload')
+      formData.append(`${attribute}_existing`, JSON.stringify(existing))
+      formData.append(`${attribute}_order`, JSON.stringify(this.items.map(item => item.kind === 'upload' ? 'upload' : 'existing')))
+      if (this.field.multiple) uploads.forEach(item => formData.append(`${attribute}[]`, item.file, item.file.name))
+      else if (uploads[0]) formData.append(attribute, uploads[0].file, uploads[0].file.name)
+    },
+    handleInput(event) {
+      this.acceptFiles(Array.from(event.target.files || []))
+      event.target.value = ''
+    },
+    handleDrop(event) {
+      this.dragging = false
+      if (!this.atLimit) this.acceptFiles(Array.from(event.dataTransfer?.files || []))
+    },
+    acceptFiles(files) {
+      this.clientError = ''
+      const allowed = this.acceptedTypes.split(',').map(type => type.trim()).filter(Boolean)
+      const remaining = Math.max(0, this.maximumFiles - this.items.length)
+      const accepted = files.filter(file => {
+        const typeAllowed = allowed.some(type => type === 'image/*' ? file.type.startsWith('image/') : type === file.type || (type.startsWith('.') && file.name.toLowerCase().endsWith(type.toLowerCase())))
+        if (!typeAllowed) { this.clientError = this.__('One or more files use an unsupported image type.'); return false }
+        if (file.size > this.maximumBytes) { this.clientError = `${file.name} ${this.__('is larger than')} ${formatBytes(this.maximumBytes)}.`; return false }
+        return true
+      }).slice(0, this.field.multiple ? remaining : 1)
+      if (files.length > accepted.length && !this.clientError) this.clientError = this.__('Some files were skipped because the image limit was reached.')
+      if (!accepted.length) return
+
+      if (!this.field.multiple) this.items.forEach(revokeLocalItem), this.items = []
+      const additions = accepted.map(localMediaItem)
+      if (this.liveCropEnabled) { this.cropQueue.push(...additions); this.cropItem ||= this.cropQueue.shift() }
+      else this.items.push(...additions)
+    },
+    removeItem(item) {
+      revokeLocalItem(item)
+      this.items = this.items.filter(candidate => candidate.key !== item.key)
+    },
+    moveItem(item, offset) {
+      const index = this.items.findIndex(candidate => candidate.key === item.key)
+      const target = index + offset
+      if (index < 0 || target < 0 || target >= this.items.length) return
+      this.items.splice(target, 0, this.items.splice(index, 1)[0])
+    },
+    canCrop(item) { return this.liveCropEnabled && item.kind === 'upload' && item.mimeType !== 'image/gif' && item.mimeType !== 'image/svg+xml' },
+    startCrop(item) { this.cropItem = item },
+    applyCrop(file) {
+      const original = this.cropItem
+      const replacement = localMediaItem(file)
+      const index = this.items.findIndex(item => item.key === original.key)
+      if (index >= 0) this.items.splice(index, 1, replacement)
+      else this.items.push(replacement)
+      revokeLocalItem(original)
+      this.advanceCropQueue()
+    },
+    skipCrop() {
+      if (!this.items.some(item => item.key === this.cropItem.key)) this.items.push(this.cropItem)
+      this.advanceCropQueue()
+    },
+    advanceCropQueue() { this.cropItem = this.cropQueue.shift() || null },
+    addFromLibrary(media) {
+      const additions = media.map((item, index) => normalizeMediaItem(item.raw || item, index + this.items.length, this.currentField))
+      const known = new Set(this.items.map(item => item.reference || item.path || item.key))
+      const unique = additions.filter(item => !known.has(item.reference || item.path || item.key))
+      if (this.field.multiple) {
+        const remaining = Math.max(0, this.maximumFiles - this.items.length)
+        this.items.push(...unique.slice(0, remaining))
+        if (unique.length > remaining) this.clientError = this.__('Some images were skipped because the image limit was reached.')
+      }
+      else { this.items.forEach(revokeLocalItem); this.items = unique.slice(0, 1) }
+      this.libraryOpen = false
+    },
+    trapLibraryFocus(event) {
+      const controls = Array.from(this.$refs.libraryDialog?.querySelectorAll('button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), [tabindex]:not([tabindex="-1"])') || [])
+      if (!controls.length) return
+      const first = controls[0]; const last = controls[controls.length - 1]
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus() }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus() }
+    },
+  },
 }
 </script>
-
-<style>
-.multi_title, .single_image p {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    direction: rtl;
-}
-</style>

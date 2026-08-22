@@ -1,0 +1,162 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  metadata-and-syntax:
+    name: Composer metadata and PHP 8.1 syntax
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.1"
+          coverage: none
+          tools: composer:v2
+
+      - name: Validate Composer metadata
+        run: composer validate --strict --no-check-publish
+
+      - name: Check PHP syntax
+        run: find . -type f -name '*.php' -not -path './vendor/*' -print0 | xargs -0 -n1 php -l
+
+  frontend-dependencies:
+    name: Frontend dependency lock
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+  licensed-suite:
+    name: ${{ matrix.label }} licensed suite
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: PHP 8.1 / Laravel 9 / Nova 4 / Image 2
+            php: "8.1"
+            nova: ^4.0
+            intervention: ^2.7
+            testbench: ^7.0
+            build_assets: true
+          - label: PHP 8.2 / Laravel 10 / Nova 4 / Image 3
+            php: "8.2"
+            nova: ^4.0
+            intervention: ^3.11
+            testbench: ^8.0
+            build_assets: false
+          - label: PHP 8.3 / Laravel 11 / Nova 5 / Image 3
+            php: "8.3"
+            nova: ^5.0
+            intervention: ^3.11
+            testbench: ^9.0
+            build_assets: true
+          - label: PHP 8.4 / Laravel 12 / Nova 5 / Image 3
+            php: "8.4"
+            nova: ^5.0
+            intervention: ^3.11
+            testbench: ^10.0
+            build_assets: false
+
+    defaults:
+      run:
+        working-directory: nova-components/Imagic
+
+    steps:
+      - name: Check out repository in a Nova component layout
+        uses: actions/checkout@v4
+        with:
+          path: nova-components/Imagic
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: gd, mbstring, sqlite3
+          coverage: none
+          tools: composer:v2
+
+      - name: Detect Nova credentials
+        id: nova-auth
+        env:
+          NOVA_USERNAME: ${{ secrets.NOVA_USERNAME }}
+          NOVA_LICENSE_KEY: ${{ secrets.NOVA_LICENSE_KEY }}
+        run: |
+          if [[ -n "$NOVA_USERNAME" && -n "$NOVA_LICENSE_KEY" ]]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Licensed tests were skipped. Configure NOVA_USERNAME and NOVA_LICENSE_KEY repository secrets to enable them."
+            echo "### Licensed matrix skipped" >> "$GITHUB_STEP_SUMMARY"
+            echo "Configure the NOVA_USERNAME and NOVA_LICENSE_KEY repository secrets to run this job." >> "$GITHUB_STEP_SUMMARY"
+            if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+              echo "::error::Release tags require the licensed Nova matrix."
+              exit 1
+            fi
+          fi
+
+      - name: Configure Nova authentication and component vendor directory
+        if: steps.nova-auth.outputs.enabled == 'true'
+        env:
+          NOVA_USERNAME: ${{ secrets.NOVA_USERNAME }}
+          NOVA_LICENSE_KEY: ${{ secrets.NOVA_LICENSE_KEY }}
+        run: |
+          composer config --global http-basic.nova.laravel.com "$NOVA_USERNAME" "$NOVA_LICENSE_KEY"
+          composer config repositories.nova composer https://nova.laravel.com
+          composer config vendor-dir ../../vendor
+
+      - name: Install matrix dependencies
+        if: steps.nova-auth.outputs.enabled == 'true'
+        run: >-
+          composer update
+          --with "laravel/nova:${{ matrix.nova }}"
+          --with "intervention/image:${{ matrix.intervention }}"
+          --with "orchestra/testbench:${{ matrix.testbench }}"
+          --prefer-dist
+          --no-interaction
+          --no-progress
+
+      - name: Run PHP tests
+        if: steps.nova-auth.outputs.enabled == 'true'
+        run: composer test
+
+      - name: Set up Node.js
+        if: steps.nova-auth.outputs.enabled == 'true' && matrix.build_assets
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: nova-components/Imagic/package-lock.json
+
+      - name: Build production assets
+        if: steps.nova-auth.outputs.enabled == 'true' && matrix.build_assets
+        run: |
+          npm ci
+          npm run production
+
+      - name: Verify committed assets
+        if: steps.nova-auth.outputs.enabled == 'true' && matrix.build_assets
+        run: git diff --exit-code -- dist

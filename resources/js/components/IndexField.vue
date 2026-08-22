@@ -1,35 +1,21 @@
 <template>
-    <div>
-      <img :src="domain + fieldValue" style="height: 50px" alt="">
-    </div>
+  <div v-if="items.length" class="imagic-index-preview" :title="items.map(item => item.name).join(', ')">
+    <span v-for="(item, index) in visibleItems" :key="item.key" class="imagic-index-preview__image" :style="{ zIndex: visibleItems.length - index }">
+      <img :src="item.thumbnailUrl || item.url" :alt="item.name" loading="lazy" width="48" height="48" />
+    </span>
+    <span v-if="items.length > visibleItems.length" class="imagic-index-preview__count">+{{ items.length - visibleItems.length }}</span>
+  </div>
+  <span v-else aria-label="No image">&mdash;</span>
 </template>
 
 <script>
+import { normalizeValue } from '../media'
+
 export default {
-    props: ['resourceName', 'field'],
-
-    data() {
-        return {
-            domain: null
-        }
-    },
-
-    mounted() {
-      this.getFullDomainWithProtocol()
-    },
-
-    computed: {
-        getFullDomainWithProtocol() {
-            const protocol = window.location.protocol;
-            const hostname = window.location.hostname;
-            const port = window.location.port ? ':' + window.location.port : '';
-
-            this.domain = `${protocol}//${hostname}${port}`;
-        },
-
-        fieldValue() {
-            return this.field.displayedAs || this.field.value
-        },
-    }
+  props: ['resourceName', 'field'],
+  computed: {
+    items() { return normalizeValue(this.field.displayedAs || this.field.value, this.field) },
+    visibleItems() { return this.items.slice(0, 3) },
+  },
 }
 </script>

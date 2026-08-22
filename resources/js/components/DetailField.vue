@@ -1,102 +1,35 @@
 <template>
-    <PanelItem :index="index" :field="field">
-        <template #value>
-            <ImageLoader
-                v-if="shouldShowLoader"
-                :src="imageUrl"
-                :maxWidth="150"
-                :rounded="field.rounded"
-                :aspect="field.aspect"
-            />
-
-            <span v-if="fieldValue && !imageUrl" class="break-words">
-        {{ fieldValue }}
-      </span>
-
-            <span v-if="!fieldValue && !imageUrl">&mdash;</span>
-
-            <p v-if="shouldShowToolbar" class="flex items-center text-sm mt-3">
-                <a
-                    v-if="field.downloadable"
-                    :dusk="field.attribute + '-download-link'"
-                    @keydown.enter.prevent="download"
-                    @click.prevent="download"
-                    tabindex="0"
-                    class="cursor-pointer text-gray-500 inline-flex items-center"
-                >
-                    <Icon
-                        class="mr-2"
-                        type="download"
-                        view-box="0 0 24 24"
-                        width="16"
-                        height="16"
-                    />
-                    <span class="class mt-1">{{ __('Download') }}</span>
-                </a>
-            </p>
-        </template>
-    </PanelItem>
+  <PanelItem :index="index" :field="field">
+    <template #value>
+      <div v-if="items.length" class="imagic-detail-gallery">
+        <figure v-for="item in items" :key="item.key" class="imagic-detail-image">
+          <a :href="item.url" target="_blank" rel="noopener noreferrer" :aria-label="__('Open image') + ' ' + item.name">
+            <img :src="item.thumbnailUrl || item.url" :alt="item.name" loading="lazy" width="220" height="170" />
+          </a>
+          <figcaption>
+            <span :title="item.name">{{ item.name }}</span>
+            <a v-if="field.downloadable" :href="downloadUrl(item)" :download="item.name" :aria-label="__('Download') + ' ' + item.name"><ImagicIcon name="download" /></a>
+          </figcaption>
+        </figure>
+      </div>
+      <span v-else>&mdash;</span>
+    </template>
+  </PanelItem>
 </template>
 
 <script>
-import { FieldValue } from 'laravel-nova'
+import ImagicIcon from './ImagicIcon'
+import { normalizeValue } from '../media'
 
 export default {
-    mixins: [FieldValue],
-
-    props: ['index', 'resource', 'resourceName', 'resourceId', 'field'],
-
-    data() {
-        return {
-            domain: null
-        }
+  components: { ImagicIcon },
+  props: ['index', 'resource', 'resourceName', 'resourceId', 'field'],
+  computed: { items() { return normalizeValue(this.field.value, this.field) } },
+  methods: {
+    downloadUrl(item) {
+      if (this.items.length > 1 || item.raw?.id) return item.url
+      return `/nova-api/${encodeURIComponent(this.resourceName)}/${encodeURIComponent(this.resourceId)}/download/${encodeURIComponent(this.field.attribute)}`
     },
-
-    mounted() {
-        this.getFullDomainWithProtocol()
-    },
-
-    methods: {
-        /**
-         * Download the linked file
-         */
-        download() {
-            const { resourceName, resourceId } = this
-            const attribute = this.field.attribute
-
-            let link = document.createElement('a')
-            link.href = `/nova-api/${resourceName}/${resourceId}/download/${attribute}`
-            link.download = 'download'
-            document.body.appendChild(link)
-            link.click()
-            document.body.removeChild(link)
-        },
-    },
-
-    computed: {
-        getFullDomainWithProtocol() {
-            const protocol = window.location.protocol;
-            const hostname = window.location.hostname;
-            const port = window.location.port ? ':' + window.location.port : '';
-
-            this.domain = `${protocol}//${hostname}${port}`;
-        },
-
-        hasValue() {
-            return Boolean(this.field.value || this.imageUrl)
-        },
-
-        shouldShowLoader() {
-            return this.imageUrl
-        },
-
-        shouldShowToolbar() {
-            return Boolean(this.field.downloadable && this.hasValue)
-        },
-
-        imageUrl() {
-            return this.field.previewUrl || this.domain + this.field.value
-        },
-    },
+  },
 }
 </script>

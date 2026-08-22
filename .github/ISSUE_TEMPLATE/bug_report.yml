@@ -1,0 +1,65 @@
+name: Bug report
+description: Report a reproducible problem in Imagic
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Remove credentials, signed URLs, private object names, and customer media before submitting.
+  - type: input
+    id: imagic-version
+    attributes:
+      label: Imagic version
+      placeholder: "2.0.0"
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: PHP, Laravel, Nova, image driver, browser, and operating system versions.
+      placeholder: "PHP 8.3, Laravel 11, Nova 5, GD, Chrome 130, Linux"
+    validations:
+      required: true
+  - type: dropdown
+    id: storage
+    attributes:
+      label: Filesystem driver
+      options:
+        - Local
+        - Amazon S3
+        - S3-compatible
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Explain the actual and expected behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Include the field definition, relevant safe configuration, and exact steps.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized logs or screenshots
+      description: Optional. Drag files here or paste logs after removing sensitive data.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues and release notes.
+          required: true
+        - label: This report contains no secrets, private media, or Nova source code.
+          required: true
+        - label: This is not a security vulnerability.
+          required: true

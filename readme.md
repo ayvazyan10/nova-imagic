@@ -1,152 +1,409 @@
-<h1 align="left">Imagic for Laravel Nova 4</h1>
+<div align="center">
+  <h1>Imagic 2.0</h1>
+  <p><strong>A production-minded image field and personal media library for Laravel Nova.</strong></p>
+  <p>Crop. Transform. Organize. Reuse. Store anywhere Laravel can.</p>
+  <p>
+    <a href="https://github.com/ayvazyan10/nova-imagic/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/ayvazyan10/nova-imagic/ci.yml?branch=master&amp;label=CI&amp;style=flat-square"></a>
+    <a href="https://www.php.net/"><img alt="PHP 8.1+" src="https://img.shields.io/badge/PHP-8.1%2B-777BB4?style=flat-square&amp;logo=php&amp;logoColor=white"></a>
+    <a href="https://laravel.com/"><img alt="Laravel 9–12" src="https://img.shields.io/badge/Laravel-9--12-FF2D20?style=flat-square&amp;logo=laravel&amp;logoColor=white"></a>
+    <a href="https://nova.laravel.com/"><img alt="Nova 4–5" src="https://img.shields.io/badge/Nova-4--5-252D37?style=flat-square"></a>
+    <a href="license.md"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-22C55E?style=flat-square"></a>
+    <a href="https://packagist.org/packages/ayvazyan10/nova-imagic"><img alt="Packagist downloads" src="https://img.shields.io/packagist/dt/ayvazyan10/nova-imagic?style=flat-square&amp;label=downloads"></a>
+  </p>
+  <p>
+    <a href="#quick-start">Quick start</a> ·
+    <a href="#media-library">Media library</a> ·
+    <a href="#field-recipes">Field recipes</a> ·
+    <a href="#configuration">Configuration</a> ·
+    <a href="UPGRADE.md">Upgrade guide</a>
+  </p>
+</div>
 
-![Imagic for Laravel Nova 4](https://ayvazyan.pro/imagic_banner.png)
-<p align="left">
-  Imagic is a Laravel Nova field package that allows for image manipulation capabilities, such as cropping, resizing, quality adjustment, and WebP conversion. It utilizes the powerful Intervention Image class for image manipulation. The purpose of this package is to optimize images for web usage by converting them to the WebP format, which provides superior compression and faster load times.
-<br><br>Advanced Image Manipulation Made Easy with Images Magic
-<br><br>✅ Single/Multiple Uploads <br>✅ Cropping <br>✅ Resizing
-<br>✅ Fitting <br>✅ Quality Control <br>✅ WebP Conversion
-<br>✅ Watermarking <br>✅ Custom Directories
-</p>
+---
 
-[![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-Donate-yellow?style=for-the-badge&logo=buymeacoffee)](https://www.buymeacoffee.com/ayvazyan403)
+Imagic turns a Nova image field into a complete image workflow. Users can upload
+one image or a sortable gallery, crop before upload, run predictable server-side
+transformations, and reuse their own uploads from an integrated media library.
+The backend writes through Laravel's filesystem abstraction, so local, S3, and
+S3-compatible disks share the same path-safe storage flow.
 
-![WEDO](https://wedo.design/logo-black.svg)
+> [!IMPORTANT]
+> These are the Imagic 2.x docs. Version 2 requires PHP 8.1+ and introduces
+> private-by-default storage, owner-scoped media references, migrations, and the
+> media manager. Read [UPGRADE.md](UPGRADE.md) before upgrading from 1.x.
 
-### Requirements
+## What ships in 2.0
 
-* PHP (^7.1 or higher)
-* Laravel Nova (^4.0 or higher)
+| | Capability | What it gives you |
+| --- | --- | --- |
+| 🖼️ | **Nova image field** | Single or sortable multiple images across form, detail, and index views |
+| ✂️ | **Visual editing** | Responsive crop-before-upload with optional aspect-ratio and output dimensions |
+| ✨ | **Server transforms** | Orientation, fit, widen, watermark, centered or positioned crop, resize, quality, and format conversion |
+| ☁️ | **Storage portability** | Laravel disks, including remote S3/S3-compatible storage, without requiring local filesystem paths |
+| 🗂️ | **Personal media library** | Per-user uploads, nested folders, search, filters, sorting, pagination, reuse, rename, move, and guarded deletion |
+| 🛡️ | **Safer uploads** | MIME, extension, byte-size, dimensions, pixel-count, and batch limits before persistence |
+| 🔒 | **Stable ownership** | Opaque object names, private defaults, owner-scoped routes, stable `media:<uuid>` values, and batch rollback |
 
-### 🚀 Installation
-#### Install the package via Composer.
-```` bash
-composer require ayvazyan10/nova-imagic
-````
-### 📚 Usage
-Here is an example of how to use Imagic in your Laravel Nova application:
-In your Laravel Nova resources, use the Imagic field:
-```` php
+## Quick start
+
+Nova uses a private Composer repository. Configure your licensed Nova Composer
+credentials, then install Imagic and run its auto-loaded migrations:
+
+```bash
+composer require ayvazyan10/nova-imagic:^2.0
+php artisan migrate
+```
+
+Add the field to a Nova resource:
+
+```php
 use Ayvazyan10\Imagic\Imagic;
+use Laravel\Nova\Http\Requests\NovaRequest;
 
-public function fields(Request $request)
+public function fields(NovaRequest $request): array
 {
     return [
-        // ...
-
-        Imagic::make('Image', 'image'),
-
-        // ...
+        Imagic::make('Gallery', 'images')
+            ->multiple()
+            ->mediaLibrary()
+            ->maxFiles(12)
+            ->maxFileSize(8 * 1024 * 1024) // Bytes
+            ->liveCrop(aspectRatio: 4 / 3)
+            ->fit(1600, 1200)
+            ->quality(88)
+            ->directory('products'),
     ];
 }
-````
-### ⚡ All Methods
-```` php
-Imagic::make('Image')
+```
+
+For a multiple field, use a `json`, `text`, or `longText` database column. The
+field understands Laravel `array`, `json`, `object`, and `collection` casts and
+avoids double encoding.
+
+The service provider, compiled Nova assets, media routes, migrations, and media
+library navigation entry are discovered automatically.
+
+### Optional publishing
+
+Publish configuration only when the application needs different defaults:
+
+```bash
+php artisan vendor:publish --tag=imagic-config
+```
+
+Migrations are auto-loaded while the media library is enabled. Publish them only
+when your deployment process requires application-owned migration files:
+
+```bash
+php artisan vendor:publish --tag=imagic-migrations
+php artisan migrate
+```
+
+For an intentionally public local disk, create Laravel's storage link if the
+application does not already have one:
+
+```bash
+php artisan storage:link
+```
+
+## Media library
+
+The media library is not a generic server file browser. It is an authenticated,
+image-only catalog of uploads owned by the current Nova user.
+
+It appears as **Media Library** in Nova's navigation and normally opens at
+`/nova/imagic-media`. Its vendor API normally lives at
+`/nova-vendor/imagic`; both paths are configurable.
+
+### The workflow
+
+```mermaid
+flowchart LR
+    A[Imagic field or media manager] --> B[Validate upload]
+    B --> C[Transform with GD or Imagick]
+    C --> D[Write original and thumbnail through Laravel Storage]
+    D --> E[Create owner-scoped catalog record]
+    E --> F[Persist stable media UUID reference]
+    F --> G[Resolve authorized Nova preview]
+```
+
+### What users can do
+
+- Upload one image or a validated batch.
+- Create nested folders and rename or delete empty folders.
+- Search by filename and filter by supported image type.
+- Sort by name, size, or date and switch between grid and list views.
+- Reuse library images from fields that enable `mediaLibrary()`.
+- Reorder multiple values by drag-and-drop or keyboard controls.
+- Rename or move catalog entries without changing immutable storage keys.
+- Copy an authenticated Nova content URL.
+- Permanently delete one or many selected items after confirmation.
+
+Each query, preview, stream, update, move, and deletion is scoped to the current
+Nova user. An optional application gate can restrict the library further.
+
+> [!CAUTION]
+> Deleting managed media removes its original and thumbnail. Imagic cannot know
+> about every arbitrary model attribute that may reference that item, so it does
+> not rewrite those attributes. Confirm shared references before deletion.
+
+## Field recipes
+
+### A single transformed image
+
+```php
+Imagic::make('Cover', 'cover_image')
+    ->fit(1200, 630)
+    ->quality(85)
+    ->convert();
+```
+
+### A sortable, reusable gallery
+
+```php
+Imagic::make('Gallery', 'gallery')
     ->multiple()
-    ->crop($width, $height, $left = 0, $top = 0)
-    ->resize($width, $height)
-    ->fit($width, $height)
-    ->widen($width)
-    ->quality($quality)
-    ->disk($path)
-    ->directory($path)
-    ->convert($convert = true)
-    ->watermark($path, $position = 'bottom-right', $x = 0, $y = 0);
-````
-### 📖 Examples
-Below are some examples in different scenarios.
-#### - <u>Multiple Images</u>
-To enable multiple image uploads, use the multiple() method. Note that when you use the multiple() method, your database column should be of type text, longtext, or json to store all images in a JSON format. Additionally, you will have the ability to sort uploaded images by drag and drop.
-``` php
-Imagic::make('Images')->multiple(),
-```
-#### - <u>Cropping</u>
-To crop images, use the crop() method:
-- x (optional)
-X-Coordinate of the top-left corner if the rectangular cutout. By default the rectangular part will be centered on the current image.
-- y (optional)
-Y-Coordinate of the top-left corner if the rectangular cutout. By default the rectangular part will be centered on the current image.
-``` php
-Imagic::make('Image')->crop($width, $height, $x, $y),
-```
-#### - <u>Resizing</u>
-To resize images, use the resize() method:
-``` php
-Imagic::make('Image')->resize($width = int|null, $height = int|null),
-```
-#### - <u>Widen resizing by width</u>
-Specify the desired (only - width)  for image resizing. 
-- The height will be automatically adjusted to maintain the aspect ratio.
-``` php
-Imagic::make('Image')->widen($width = int),
-```
-#### - <u>Quality</u>
-To adjust the image quality, use the quality() method: default is 90
-``` php
-Imagic::make('Image')->quality(90),
-```
-#### - <u>WebP Conversion</u>
-To convert images to WebP format, use the convert() method:<br>
-By default, the images will be converted to WebP format. To disable conversion, pass false to the convert() method:
-``` php
-Imagic::make('Image')->convert(false),
-```
-#### - <u>Fit</u>
-You can use the fit() method when defining the Imagic field in your Nova resource:
-``` php
-Imagic::make('Image')->fit($width, $height),
-```
-#### - <u>Field with watermark</u>
-Replace the /path/to/watermark.png with the actual path to your watermark image.<br>
-This will add the watermark to the image with the specified path, position, and offset (15x15 pixels from the bottom-right corner in this example).
-Remember to import the Imagic class at the top of your Nova resource file:
-``` php
-Imagic::make('Image')->watermark('/path/to/watermark.png', 'bottom-right', 15, 15),
-```
-#### - <u>Specified disk</u>
-Here is an example of how to use it:
-``` php
-Imagic::make('Image')->disk('public')
-```
-Caution:
-The disk is not working with custom directories and will throw an error.
-#### - <u>Directory Customization</u> 
-BY DEFAULT - Imagic uses this structure: /storage/imagic/year/month/day/image_name.webp
-
-The Imagic class includes a directory() method that allows you to specify a custom directory path for your image uploads. This allows for more flexibility in managing the location of your image files.
-
-To use this feature, call the directory() method when creating an Imagic field and provide it with your custom directory path as an argument. This path should be a string, and should not start or end with a /.
-
-Here is an example of how to use it:
-``` php
-Imagic::make('Image')->directory('your/custom/directory')
-```
-In this example, any images uploaded through this field will be saved in your/custom/directory.
-
-Caution:
-The provided directory path should not start or end with a /. If it does, an InvalidArgumentException will be thrown. Make sure your directory path is correctly formatted when using this feature.
-
-For example, the following code would throw an exception:
-``` php
-// This will throw an exception because the directory path starts with a '/'
-// Directory structure should not start or end with a slash. Only in the middle.
-Imagic::make('Image')
-    ->directory('/invalid/directory/path')
+    ->maxFiles(20)
+    ->mediaLibrary()
+    ->liveCrop()
+    ->widen(2000);
 ```
 
-## Contributing
+### A centered server crop
 
-Please see [contributing.md](contributing.md) for details and a todolist.
+```php
+Imagic::make('Avatar', 'avatar')
+    ->crop(600, 600);       // Omitted coordinates center the crop
+```
 
-## Security
+To crop from the top-left instead, pass explicit coordinates:
 
-If you discover any security related issues, please email ayvazyan403@gmail.com instead of using the issue tracker.
+```php
+Imagic::make('Avatar', 'avatar')
+    ->crop(600, 600, 0, 0);
+```
 
-## Author
+### Watermark on S3
 
-- <a href="https://github.com/ayvazyan10">Razmik Ayvazyan</a>
+```php
+Imagic::make('Artwork', 'artwork')
+    ->disk('s3')
+    ->directory('artwork')
+    ->watermark(
+        storage_path('app/watermarks/brand.png'),
+        'bottom-right',
+        16,
+        16,
+    )
+    ->quality(90);
+```
+
+The watermark source is a trusted local path configured by application code.
+Never pass request input to `watermark()` or `directory()`.
+
+### A deliberate public URL instead of a catalog reference
+
+Cataloged values resolve through authenticated Nova routes even if the storage
+object is public. When a field must persist a public disk URL for use outside
+Nova, opt out explicitly:
+
+```php
+Imagic::make('Public Image', 'public_image')
+    ->mediaLibrary(false)
+    ->disk('public')
+    ->visibility('public')
+    ->directory('site-images');
+```
+
+Use this mode only with a disk and data that are intentionally public.
+
+## Image pipeline
+
+Configured server operations run in a fixed order:
+
+1. EXIF orientation when available
+2. fit
+3. widen
+4. watermark
+5. crop
+6. resize
+7. encode
+
+Fluent call order does not change this pipeline. Fit, widen, and resize avoid
+upscaling. Interactive cropping happens in the browser before this server-side
+pipeline. Animated GIFs are not offered for client-side cropping.
+
+Imagic accepts JPEG, PNG, GIF, and WebP by default. SVG is deliberately excluded
+because it may contain active content.
+
+## Field API
+
+| Method | Purpose |
+| --- | --- |
+| `multiple(bool $enabled = true)` | Enable sortable multiple values |
+| `mediaLibrary(bool $enabled = true)` | Show the picker and catalog direct uploads |
+| `liveCrop(bool $enabled = true, ?float $aspectRatio = null)` | Enable interactive crop-before-upload |
+| `cropAspectRatio(?float $ratio)` | Set or clear the interactive crop ratio |
+| `maxFiles(int $maximum)` | Limit total items in a multiple field |
+| `maxFileSize(int $bytes)` | Limit each direct field upload in bytes |
+| `disk(string $disk)` | Override the configured Laravel disk |
+| `directory(string $path)` | Override the safe relative storage directory |
+| `visibility('private'\|'public')` | Override filesystem visibility for the field |
+| `crop(?int $width, ?int $height, ?int $left, ?int $top)` | Crop on the server; omitted coordinates center the crop |
+| `fit(?int $width, ?int $height)` | Cover the requested bounds without upscaling |
+| `resize(?int $width, ?int $height)` | Resize while preserving aspect ratio |
+| `widen(?int $width)` | Resize proportionally by width |
+| `quality(int $quality)` | Set output quality from 0 to 100 |
+| `convert(bool $enabled = true)` | Convert to WebP, or preserve a supported source format |
+| `driver('gd'\|'imagick')` | Select the image-processing driver |
+| `watermark(string $path, string $position = 'bottom-right', int $x = 0, int $y = 0)` | Overlay a trusted local watermark |
+
+`disk()` and `directory()` may be combined. Directories must be relative, must
+not start or end with `/`, and may not contain dot or backslash path segments.
+
+## Stored values and compatibility
+
+Managed uploads persist as stable references instead of storage paths:
+
+```text
+media:550e8400-e29b-41d4-a716-446655440000
+```
+
+A multiple field stores a JSON array of those references. During Nova
+serialization, Imagic expands references owned by the current user into the
+authorized preview metadata required by the UI. Private disk paths are not
+exposed in API responses, and a reference owned by another user is rejected on
+save.
+
+Existing 1.x scalar URLs/paths, JSON arrays, and comma-separated input remain
+readable. Legacy files are not moved or automatically imported into the new
+catalog.
+
+## Authorization
+
+Nova authentication and authorization middleware protect both the manager and
+vendor API. To add an application-specific rule, define a gate:
+
+```php
+use Illuminate\Support\Facades\Gate;
+
+Gate::define('manage-imagic-media', function ($user): bool {
+    return $user->is_admin;
+});
+```
+
+Then publish the config and set:
+
+```php
+'media_library' => [
+    'authorization_gate' => 'manage-imagic-media',
+    // ...
+],
+```
+
+The gate controls the navigation entry, page, and API. `show_in_menu = false`
+hides the menu item; it is not an authorization control.
+
+## Configuration
+
+The safe defaults live in `config/imagic.php`:
+
+| Option | Default | Purpose |
+| --- | --- | --- |
+| `disk` | Nova disk or `public` | Disk for managed originals and thumbnails |
+| `directory` | `imagic` | Base path within the disk |
+| `visibility` | `private` | Default filesystem visibility |
+| `field.visibility` | top-level `visibility` | Direct field-upload visibility |
+| `field.media_library` | `true` | Catalog field uploads and show the picker |
+| `field.live_crop` | `false` | Enable live crop for all fields by default |
+| `field.crop_aspect_ratio` | `null` | Optional global crop ratio |
+| `field.max_files` | `20` | Default total for a multiple field |
+| `uploads.max_file_size` | `12288` | Maximum input size in KiB |
+| `uploads.max_width` / `max_height` | `12000` | Maximum decoded dimensions |
+| `uploads.max_pixels` | `40000000` | Pixel-count/decompression safety limit |
+| `uploads.max_files` | `20` | Maximum manager batch size |
+| `transform.driver` | `gd` | `gd` or `imagick` |
+| `transform.format` | `webp` | Default manager output format |
+| `transform.quality` | `88` | Default manager output quality |
+| `thumbnail.width` / `height` | `480` / `320` | Media-manager thumbnail bounds |
+| `media_library.enabled` | `true` | Enable catalog migrations, routes, and UI |
+| `media_library.authorization_gate` | `null` | Optional application gate name |
+| `media_library.per_page` | `24` | Default page size |
+| `media_library.max_per_page` | `100` | Maximum API page size |
+| `media_library.rate_limit` | `120` | Requests per user per minute |
+
+Environment shortcuts cover the main storage and transformer settings:
+
+```dotenv
+IMAGIC_DISK=s3
+IMAGIC_DIRECTORY=imagic
+IMAGIC_VISIBILITY=private
+# Optional; inherits IMAGIC_VISIBILITY when omitted
+IMAGIC_FIELD_VISIBILITY=private
+IMAGIC_DRIVER=imagick
+IMAGIC_FORMAT=webp
+```
+
+> [!WARNING]
+> Filesystem visibility cannot make a file private when the selected local disk
+> is already exposed by the web server. In particular, a `public` disk behind
+> `storage:link` is publicly reachable regardless of the catalog's authenticated
+> proxy URL. Use a non-public local disk or a correctly private cloud bucket for
+> sensitive uploads.
+
+For S3 or another remote disk, configure endpoint, region, credentials, bucket,
+and URL in the application's Laravel filesystem configuration. Imagic writes
+bytes through Laravel Storage and never asks a remote disk for a local path.
+
+## Compatibility
+
+| Imagic | PHP | Laravel | Nova | Intervention Image |
+| --- | --- | --- | --- | --- |
+| **2.x** | **8.1+** | **9–12** | **4–5** | **2.7 or 3.11+** |
+| 1.3 | EOL | Legacy | 4 | 2.7 |
+
+Intervention Image 3 is recommended. Version 2.7 remains available as a 2.0
+transition path but is upstream end-of-life.
+
+Runtime requirements:
+
+- Composer 2
+- PHP `fileinfo` and `mbstring`
+- GD or Imagick
+- EXIF recommended for camera orientation
+- A modern browser supported by the installed Nova version
+
+Refer to Laravel's [Nova installation guide](https://nova.laravel.com/docs/v5/installation)
+and Intervention Image's [installation guide](https://image.intervention.io/v3/getting-started/installation)
+for their platform requirements.
+
+## Security and operational notes
+
+- Uploads are untrusted input. Keep conservative byte, dimension, pixel, and
+  batch limits for the memory available to PHP.
+- Catalog routes and URLs are for authenticated Nova use, regardless of the
+  underlying object's filesystem visibility.
+- A `private` visibility setting does not override a publicly mounted local
+  storage directory; choose the disk and web-server mapping accordingly.
+- Keep Laravel, Nova, Intervention Image, PHP, and the GD/Imagick system
+  libraries patched.
+- Use least-privilege filesystem credentials and bucket policies.
+- Do not expose Nova vendor routes without their configured authentication and
+  authorization middleware.
+
+Report vulnerabilities privately according to [SECURITY.md](SECURITY.md).
+
+## Project guides
+
+| Guide | Use it for |
+| --- | --- |
+| [Upgrade guide](UPGRADE.md) | Moving safely from Imagic 1.x to 2.x |
+| [Changelog](CHANGELOG.md) | User-visible additions, fixes, and security changes |
+| [Security policy](SECURITY.md) | Supported versions and private vulnerability reporting |
+| [Contributing guide](contributing.md) | Local setup, tests, assets, and pull-request expectations |
+| [Release process](RELEASING.md) | Licensed compatibility matrix and maintainer checklist |
 
 ## License
 
-MIT. Please see the [license file](license.md) for more information.
+Imagic is open-source software released under the [MIT license](license.md).
+It is maintained by [Razmik Ayvazyan](https://github.com/ayvazyan10).
