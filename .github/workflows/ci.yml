@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
@@ -37,10 +37,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: "20"
           cache: npm
@@ -87,7 +87,7 @@ jobs:
 
     steps:
       - name: Check out repository in a Nova component layout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           path: nova-components/Imagic
 
@@ -145,7 +145,7 @@ jobs:
 
       - name: Set up Node.js
         if: steps.nova-auth.outputs.enabled == 'true' && matrix.build_assets
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: "20"
           cache: npm
