@@ -1,21 +1,27 @@
 # Upgrading to Imagic 2.0
 
 Imagic 2.0 modernizes image processing and storage and introduces the Nova media
-library. It intentionally drops environments that cannot run the maintained
-image stack.
+library. Its broad Composer constraints retain EOL migration compatibility, but
+production applications should use the security-maintained baseline below.
 
 ## Requirements
 
-- PHP 8.1 or newer
-- Laravel 9, 10, 11, or 12
-- Laravel Nova 4 or 5
-- Intervention Image 2.7 or 3.x; 3.x is recommended because 2.x is upstream
-  end-of-life
+- Current security-maintained baseline: PHP 8.2 or newer, Laravel 12, Laravel
+  Nova 5, and Intervention Image 3.11 or newer
+- EOL compatibility/migration only: Laravel 9–11, Nova 4–5, PHP 8.1 where the
+  selected framework permits it, and Intervention Image 2.7 or 3.11+
 - `fileinfo`, GD or Imagick, plus `mbstring`; EXIF is recommended for automatic
   orientation
 
 Review the exact constraints in `composer.json` before upgrading a production
 application.
+
+> [!WARNING]
+> Composer may refuse a fresh legacy resolution because active framework
+> advisories have no patched release on those lines. Do not disable Composer
+> security blocking in a production application to install Imagic. Upgrade the
+> application stack; the CI-only legacy override exists solely to detect Imagic
+> regressions.
 
 ## Upgrade procedure
 

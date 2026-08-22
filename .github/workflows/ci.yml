@@ -56,30 +56,34 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - label: PHP 8.1 / Laravel 9 / Nova 4 / Image 2
+          - label: EOL compatibility - PHP 8.1 / Laravel 9 / Nova 4 / Image 2
             php: "8.1"
             nova: ^4.0
             intervention: ^2.7
             testbench: ^7.0
+            legacy: true
             build_assets: true
-          - label: PHP 8.2 / Laravel 10 / Nova 4 / Image 3
+          - label: EOL compatibility - PHP 8.2 / Laravel 10 / Nova 4 / Image 3
             php: "8.2"
             nova: ^4.0
             intervention: ^3.11
             testbench: ^8.0
+            legacy: true
             build_assets: false
-          - label: PHP 8.3 / Laravel 11 / Nova 5 / Image 3
+          - label: EOL compatibility - PHP 8.3 / Laravel 11 / Nova 5 / Image 3
             php: "8.3"
             nova: ^5.0
             intervention: ^3.11
             testbench: ^9.0
+            legacy: true
             build_assets: true
           - label: PHP 8.4 / Laravel 12 / Nova 5 / Image 3
             php: "8.4"
             nova: ^5.0
             intervention: ^3.11
             testbench: ^10.0
-            build_assets: false
+            legacy: false
+            build_assets: true
 
     defaults:
       run:
@@ -128,8 +132,12 @@ jobs:
           composer config repositories.nova composer https://nova.laravel.com
           composer config vendor-dir ../../vendor
 
-      - name: Install matrix dependencies
-        if: steps.nova-auth.outputs.enabled == 'true'
+      - name: Install EOL compatibility dependencies
+        if: steps.nova-auth.outputs.enabled == 'true' && matrix.legacy == true
+        env:
+          # Scoped to this ephemeral compatibility install. Production users
+          # must upgrade instead of disabling Composer advisory blocking.
+          COMPOSER_POLICY_ADVISORIES_BLOCK: "0"
         run: >-
           composer update
           --with "laravel/nova:${{ matrix.nova }}"
@@ -138,6 +146,30 @@ jobs:
           --prefer-dist
           --no-interaction
           --no-progress
+
+      - name: Install current dependencies with security blocking
+        if: steps.nova-auth.outputs.enabled == 'true' && matrix.legacy == false
+        run: >-
+          composer update
+          --with "laravel/nova:${{ matrix.nova }}"
+          --with "intervention/image:${{ matrix.intervention }}"
+          --with "orchestra/testbench:${{ matrix.testbench }}"
+          --prefer-dist
+          --no-interaction
+          --no-progress
+
+      - name: Report EOL compatibility dependency advisories
+        if: steps.nova-auth.outputs.enabled == 'true' && matrix.legacy == true
+        continue-on-error: true
+        run: |
+          echo "::warning::This EOL compatibility row installs an unsupported Laravel line only to detect Imagic regressions. Its audit findings are expected and do not represent secure production support."
+          echo "### EOL compatibility dependency audit" >> "$GITHUB_STEP_SUMMARY"
+          echo "This row exercises source compatibility only. Laravel is EOL and active advisories remain visible below." >> "$GITHUB_STEP_SUMMARY"
+          composer audit --locked
+
+      - name: Audit current dependencies
+        if: steps.nova-auth.outputs.enabled == 'true' && matrix.legacy == false
+        run: composer audit --locked
 
       - name: Run PHP tests
         if: steps.nova-auth.outputs.enabled == 'true'

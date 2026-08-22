@@ -26,8 +26,11 @@ All notable changes to Imagic are documented here. The project follows
 
 ### Changed
 
-- The minimum PHP version is now 8.1. Supported frameworks are Laravel 9–12
-  with Nova 4–5.
+- The minimum install-compatible PHP version is now 8.1. Broad PHP 8.1+,
+  Laravel 9–11, Nova 4–5, and Intervention Image 2.7/3.11+ combinations remain
+  available only for EOL migration compatibility; the current
+  security-maintained baseline is PHP 8.2+, Laravel 12, Nova 5, and Intervention
+  Image 3.11+.
 - Uploads use random opaque object names instead of timestamps and original
   filenames.
 - Image output is written through Laravel's filesystem abstraction, including

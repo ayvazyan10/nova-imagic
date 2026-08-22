@@ -4,9 +4,9 @@
   <p>Crop. Transform. Organize. Reuse. Store anywhere Laravel can.</p>
   <p>
     <a href="https://github.com/ayvazyan10/nova-imagic/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/ayvazyan10/nova-imagic/ci.yml?branch=master&amp;label=CI&amp;style=flat-square"></a>
-    <a href="https://www.php.net/"><img alt="PHP 8.1+" src="https://img.shields.io/badge/PHP-8.1%2B-777BB4?style=flat-square&amp;logo=php&amp;logoColor=white"></a>
-    <a href="https://laravel.com/"><img alt="Laravel 9–12" src="https://img.shields.io/badge/Laravel-9--12-FF2D20?style=flat-square&amp;logo=laravel&amp;logoColor=white"></a>
-    <a href="https://nova.laravel.com/"><img alt="Nova 4–5" src="https://img.shields.io/badge/Nova-4--5-252D37?style=flat-square"></a>
+    <a href="https://www.php.net/"><img alt="PHP 8.2+ secure baseline" src="https://img.shields.io/badge/PHP-8.2%2B_secure_baseline-777BB4?style=flat-square&amp;logo=php&amp;logoColor=white"></a>
+    <a href="https://laravel.com/"><img alt="Laravel 12 secure baseline" src="https://img.shields.io/badge/Laravel-12_secure_baseline-FF2D20?style=flat-square&amp;logo=laravel&amp;logoColor=white"></a>
+    <a href="https://nova.laravel.com/"><img alt="Nova 5 secure baseline" src="https://img.shields.io/badge/Nova-5_secure_baseline-252D37?style=flat-square"></a>
     <a href="license.md"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-22C55E?style=flat-square"></a>
     <a href="https://packagist.org/packages/ayvazyan10/nova-imagic"><img alt="Packagist downloads" src="https://img.shields.io/packagist/dt/ayvazyan10/nova-imagic?style=flat-square&amp;label=downloads"></a>
   </p>
@@ -28,9 +28,12 @@ The backend writes through Laravel's filesystem abstraction, so local, S3, and
 S3-compatible disks share the same path-safe storage flow.
 
 > [!IMPORTANT]
-> These are the Imagic 2.x docs. Version 2 requires PHP 8.1+ and introduces
-> private-by-default storage, owner-scoped media references, migrations, and the
-> media manager. Read [UPGRADE.md](UPGRADE.md) before upgrading from 1.x.
+> These are the Imagic 2.x docs. The Composer constraints retain PHP 8.1 and
+> Laravel 9–11 only for EOL migration compatibility; the security-maintained
+> baseline is PHP 8.2+, Laravel 12, Nova 5, and Intervention Image 3. Version 2
+> also introduces private-by-default storage, owner-scoped media references,
+> migrations, and the media manager. Read [UPGRADE.md](UPGRADE.md) before
+> upgrading from 1.x.
 
 ## What ships in 2.0
 
@@ -355,15 +358,32 @@ For S3 or another remote disk, configure endpoint, region, credentials, bucket,
 and URL in the application's Laravel filesystem configuration. Imagic writes
 bytes through Laravel Storage and never asks a remote disk for a local path.
 
-## Compatibility
+## Compatibility and support
 
-| Imagic | PHP | Laravel | Nova | Intervention Image |
+The Composer constraints remain broad enough to help existing applications move
+to Imagic 2 without combining the package migration with every framework
+upgrade. That install compatibility is not a promise that an EOL framework is
+safe to operate.
+
+| Status | PHP | Laravel | Nova | Intervention Image |
 | --- | --- | --- | --- | --- |
-| **2.x** | **8.1+** | **9–12** | **4–5** | **2.7 or 3.11+** |
-| 1.3 | EOL | Legacy | 4 | 2.7 |
+| **Current security-maintained baseline** | **8.2+** | **12** | **5** | **3.11+** |
+| EOL compatibility/migration only | 8.1 | 9 | 4 | 2.7 |
+| EOL compatibility/migration only | 8.2 | 10 | 4 | 3.11+ |
+| EOL compatibility/migration only | 8.3 | 11 | 5 | 3.11+ |
 
-Intervention Image 3 is recommended. Version 2.7 remains available as a 2.0
-transition path but is upstream end-of-life.
+The CI matrix exercises the three legacy rows only to catch Imagic source
+regressions. Intervention Image 2.7 and Laravel 9–11 are upstream end-of-life;
+use the current baseline for production deployments. See Laravel's
+[support policy](https://laravel.com/docs/12.x/releases#support-policy) for
+framework maintenance dates.
+
+> [!WARNING]
+> Composer may refuse a fresh legacy resolution because active framework
+> advisories have no patched release on those lines. Do not disable Composer
+> security blocking in a production application to install Imagic. Upgrade the
+> application stack; the CI-only legacy override exists solely to detect Imagic
+> regressions.
 
 Runtime requirements:
 
@@ -387,6 +407,8 @@ for their platform requirements.
   storage directory; choose the disk and web-server mapping accordingly.
 - Keep Laravel, Nova, Intervention Image, PHP, and the GD/Imagick system
   libraries patched.
+- Never disable Composer advisory blocking to keep an EOL application stack in
+  production; upgrade to the security-maintained baseline instead.
 - Use least-privilege filesystem credentials and bucket policies.
 - Do not expose Nova vendor routes without their configured authentication and
   authorization middleware.
