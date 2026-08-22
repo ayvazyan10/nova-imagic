@@ -4,10 +4,26 @@ updates:
     directory: /
     schedule:
       interval: weekly
-    groups:
-      frontend-dependencies:
-        patterns:
-          - "*"
+    ignore:
+      # Cropper.js 2 requires migrating the current v1 imperative crop API.
+      - dependency-name: cropperjs
+        versions:
+          - ">= 2.0.0"
+      # Axios 1 needs a dedicated Nova 4/5 integration review.
+      - dependency-name: axios
+        versions:
+          - ">= 1.0.0"
+      # Hold the verified webpack 5.104.0 baseline pending build-stack modernization.
+      - dependency-name: webpack
+        versions:
+          - "> 5.104.0"
+      # Keep the Vue compiler and loader on compatible major versions.
+      - dependency-name: "@vue/compiler-sfc"
+        update-types:
+          - "version-update:semver-major"
+      - dependency-name: vue-loader
+        versions:
+          - ">= 17.0.0"
     open-pull-requests-limit: 5
 
   - package-ecosystem: github-actions
