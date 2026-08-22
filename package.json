@@ -21,7 +21,7 @@
     "vue-loader": "^16.8.3"
   },
   "dependencies": {
-    "cropperjs": "^1.6.1",
+    "cropperjs": "^1.6.2",
     "sortablejs": "^1.15.7"
   }
 }
