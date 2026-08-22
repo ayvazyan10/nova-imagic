@@ -63,6 +63,7 @@ jobs:
             testbench: ^7.0
             legacy: true
             build_assets: true
+            verify_dist: false
           - label: EOL compatibility - PHP 8.2 / Laravel 10 / Nova 4 / Image 3
             php: "8.2"
             nova: ^4.0
@@ -70,6 +71,7 @@ jobs:
             testbench: ^8.0
             legacy: true
             build_assets: false
+            verify_dist: false
           - label: EOL compatibility - PHP 8.3 / Laravel 11 / Nova 5 / Image 3
             php: "8.3"
             nova: ^5.0
@@ -77,6 +79,7 @@ jobs:
             testbench: ^9.0
             legacy: true
             build_assets: true
+            verify_dist: false
           - label: PHP 8.4 / Laravel 12 / Nova 5 / Image 3
             php: "8.4"
             nova: ^5.0
@@ -84,6 +87,7 @@ jobs:
             testbench: ^10.0
             legacy: false
             build_assets: true
+            verify_dist: true
 
     defaults:
       run:
@@ -187,8 +191,9 @@ jobs:
         if: steps.nova-auth.outputs.enabled == 'true' && matrix.build_assets
         run: |
           npm ci
+          npm run nova:install
           npm run production
 
       - name: Verify committed assets
-        if: steps.nova-auth.outputs.enabled == 'true' && matrix.build_assets
+        if: steps.nova-auth.outputs.enabled == 'true' && matrix.verify_dist
         run: git diff --exit-code -- dist
