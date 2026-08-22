@@ -11,17 +11,17 @@
     "nova:install": "npm --prefix='../../vendor/laravel/nova' ci"
   },
   "devDependencies": {
-    "@vue/compiler-sfc": "^3.2.22",
-    "axios": "0.33.0",
+    "@vue/compiler-sfc": "^3.5.41",
+    "axios": "1.19.0",
     "form-backend-validation": "^2.3.3",
     "laravel-mix": "^6.0.41",
     "lodash": "^4.17.21",
     "postcss": "^8.3.11",
-    "webpack": "5.104.0",
-    "vue-loader": "^16.8.3"
+    "webpack": "5.109.2",
+    "vue-loader": "^17.4.2"
   },
   "dependencies": {
-    "cropperjs": "^1.6.1",
-    "sortablejs": "^1.15.0"
+    "cropperjs": "^2.1.1",
+    "sortablejs": "^1.15.7"
   }
 }
